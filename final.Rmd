@@ -1,0 +1,286 @@
+---
+title: "ECON2209 Final Project"
+author: "z5207462"
+date: "05/05/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+Setup
+
+```{r, message= FALSE, warning= FALSE}
+library(fpp3)
+library(readabs)
+library(pander)
+```
+
+Question 1
+
+a)
+
+```{r}
+aus_accommodation$CPIadjusted <- (aus_accommodation$Takings / aus_accommodation$CPI) * 100
+autoplot(aus_accommodation, .vars = CPIadjusted)
+aus_accommodation
+```
+
+b)
+
+i)
+```{r}
+chosen <- aus_accommodation %>%
+  filter(State == "New South Wales")
+
+fit <- chosen %>%
+  model(
+    ARIMA(CPIadjusted ~ fourier(K = 1) + trend(yearquarter(c("2008 Q1"))))
+  )
+```
+
+ii)
+
+```{r}
+report(fit)
+gg_tsresiduals(fit)
+```
+
+iii)
+
+```{r}
+augment(fit) %>%
+  features(.resid, ljung_box, dof = 1, lag = (4/2))
+```
+
+c)
+
+```{r}
+fc <- fit %>% forecast(h = "1 year")
+
+fc %>%
+  autoplot() +
+  autolayer(
+    filter_index(chosen),
+    colour = "red"
+  )
+```
+
+d)
+
+Question 2
+
+```{r}
+set.seed(5207462)
+myseries <- aus_retail %>%
+  filter(`Series ID` == sample(aus_retail$`Series ID`,1))
+```
+
+```{r}
+autoplot(myseries)
+myseries %>% features(Turnover, features = guerrero)
+myseries %>% autoplot(box_cox(Turnover, 0.0107))
+```
+
+```{r}
+fit <- myseries %>% model(
+  `K = 1.a` = ARIMA(log(Turnover) ~ fourier(K = 1) + PDQ(0,0,0)),
+  `K = 1.b` = ARIMA(log(Turnover) ~ fourier(K = 1) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  `K = 1.c` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 1) + PDQ(0,0,0)),
+  `K = 1.d` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 1) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+
+  `K = 2.a` = ARIMA(log(Turnover) ~ fourier(K = 2) + PDQ(0,0,0)),
+  `K = 2.b` = ARIMA(log(Turnover) ~ fourier(K = 2) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  `K = 2.c` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 2) + PDQ(0,0,0)),
+  `K = 2.d` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 2) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  
+  `K = 3.a` = ARIMA(log(Turnover) ~ fourier(K = 3) + PDQ(0,0,0)),
+  `K = 3.b` = ARIMA(log(Turnover) ~ fourier(K = 3) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  `K = 3.c` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 3) + PDQ(0,0,0)),
+  `K = 3.d` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 3) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  
+  `K = 4.a` = ARIMA(log(Turnover) ~ fourier(K = 4) + PDQ(0,0,0)),
+  `K = 4.b` = ARIMA(log(Turnover) ~ fourier(K = 4) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  `K = 4.c` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 4) + PDQ(0,0,0)),
+  `K = 4.d` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 4) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  
+  `K = 5.a` = ARIMA(log(Turnover) ~ fourier(K = 5) + PDQ(0,0,0)),
+  `K = 5.b` = ARIMA(log(Turnover) ~ fourier(K = 5) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  `K = 5.c` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 5) + PDQ(0,0,0)),
+  `K = 5.d` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 5) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  
+  `K = 6.a` = ARIMA(log(Turnover) ~ fourier(K = 6) + PDQ(0,0,0)),
+  `K = 6.b` = ARIMA(log(Turnover) ~ fourier(K = 6) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+  `K = 6.c` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 6) + PDQ(0,0,0)),
+  `K = 6.d` = ARIMA(log(Turnover, base = exp(0.0107)) ~ fourier(K = 6) + pdq(0:2, 0, 0:2) + PDQ(0:1, 0, 0:1)),
+
+  fourier1 = TSLM(log(Turnover) ~ trend() + fourier(K = 1)),
+  
+  fourier2 = TSLM(log(Turnover) ~ trend() + fourier(K = 2)),
+  
+  fourier3 = TSLM(log(Turnover) ~ trend() + fourier(K = 3)),
+  
+  fourier4 = TSLM(log(Turnover) ~ trend() + fourier(K = 4)),
+  
+  fourier5 = TSLM(log(Turnover) ~ trend() + fourier(K = 5)),
+  
+  fourier6 = TSLM(log(Turnover) ~ trend() + fourier(K = 6))
+)
+```
+
+```{r}
+pander(
+  glance(fit) %>%
+    arrange(AICc) %>%
+    select(.model, AICc)
+)
+```
+
+```{r}
+fit %>%
+  select(fourier5) %>%
+  gg_tsresiduals()
+
+augment(fit) %>%
+  filter(.model == "fourier5") %>%
+  features(.innov, ljung_box, dof = 12, lag = 24)
+```
+
+Question 3
+
+```{r, message= FALSE, warning= FALSE}
+cpidata <- read_abs("6401.0", tables=5, check_local=FALSE) %>%
+  mutate ( Quarter = yearquarter (date)) %>%
+  as_tsibble (
+    index = Quarter,
+    key = c (series_id)
+  )
+
+set.seed(5207462)
+select_series <- cpidata %>%
+  filter (`series_id` == sample (cpidata$`series_id` , 1), year(Quarter)>=1990)
+
+myseries <- select_series %>%
+  replace("series", sub("Index Numbers ;", "", select_series$series))
+myseries %>%
+  autoplot(value) +
+  labs ( y = "Inflation Index" ,
+         title = myseries$series[1])
+```
+
+The code above is setup for this question.
+
+a)
+```{r}
+gg_season(myseries, y = value)
+```
+
+As we can see above, there is not a strong seasonality pattern across time periods. In the year pre-2010, the variations within a year stayed quite consistent. However since 2010, the variations within a year have been negatively correlated with timed as illustrated by the plot of the graph. Even though the data does not have a strong seasonality, a negative trend is present in the data after 2010.
+
+```{r}
+gg_subseries(myseries, y = value)
+```
+
+The subseries shows consistency across each quarter over the chosen time period with the the plots quite similar in shape with exceptions at year ~2003 in the Q4 when compared to the Q1.
+The median values stayed quite consistent over the period of time showing no major fluctuations. Therefore, there was not a strong trend across the quarters.
+
+```{r}
+gg_lag(myseries, y = value, lags = 1:4, geom = 'point')
+```
+
+The lag plots above display the value for 4 chosen lags to display variations within each quarter along with point descriptors instead of lines. 
+As seen above, the values for lag 1 is strongly positively correlated followed by lag 2 which is still strongly correlated although less. As time passes, the values become less positively correlated. This highlights the lack of strong seasonality with the data as seen by the autoplot.
+
+```{r}
+myseries %>% ACF(value, lag_max = 24) %>% autoplot()
+```
+
+The ACF graph shows the value with a lag max of 24 for 6 years of values at quarterly. 
+As seen, the value up until the 14th lag were significant since they were above the blue line and lags are again present from 20 to 24 This illustrates that there is not strong seasonality present in the data especially when analysed over an extended period of time.
+
+```{r}
+myseries %>% features(value, features = guerrero)
+myseries %>% autoplot(box_cox(value, 2))
+```
+
+As seen above, the automatic Box-Cox transformation value is 2 and once tested the resulting graph is extremely similar to the original graph. Therefore, a transformation is not necessary and useful since no normalisation of the data occurred.
+
+b)
+
+```{r}
+myseries_train <- myseries %>% 
+  filter(year(Quarter) < 2013)
+autoplot(myseries, value) + autolayer(myseries_train, value, colour = "red")  
+```
+
+"myseries_train" was filtered to include observations before 2013 and the values are autoplotted in red below. The values in black illustrate the values after 2013.
+
+```{r, warning= FALSE}
+fit <- myseries_train %>%
+  model(SNAIVE(value))
+
+fit %>% gg_tsresiduals()
+```
+
+The model is then trained on seasonal naive method and the residuals are plotted above. 
+As we can see, the distribution is somewhat normal although it has a small shift to the right. Outliers are also present on the graph as illustrated by the value above 4 and below -4.
+The histogram also does not have a mean of zero with large variations such as in 2000 Q1 illustrating x.
+The ACF values are also significant before the 3rd lag and once at lag 6 and 18/19. This illustrates that the values are y.
+
+
+```{r, message= FALSE, warning= FALSE}
+fc <- fit %>%
+  forecast(new_data = anti_join(myseries, myseries_train))
+```
+```{r}
+fit %>% accuracy()
+fc %>% accuracy(myseries)
+```
+
+"myseries" and "myseries_train" are then compared and the differences are removed.
+As seen above the RMSE for the trained model is 2.38 whilst 14.3 for the untrained model. Therefore the trained model is substantially better with respect to RMSE for the modeland is the model I prefer for this case.
+
+c)
+
+```{r}
+myseries %>% model(ETS(value))
+
+fit <- myseries %>%
+  model(
+    MAM = ETS(value ~ error("M") + trend("A") + season("M")),
+    MAdM = ETS(value ~ error("M") + trend("Ad") + season("M")),
+    
+    AAN = ETS(value ~ error("A") + trend("A") + season("N")),
+    AAdN = ETS(value ~ error("A") + trend("Ad") + season("N"))
+  )
+fc <- fit %>% forecast(h = 12)
+
+fc %>% autoplot(filter(myseries, year(Quarter) > 2013))
+fit %>% accuracy()
+```
+
+d) 
+
+```{r}
+myseries_train <- myseries %>% 
+  filter(year(Quarter) < 2013)
+
+stlarima <- decomposition_model(
+  STL(box_cox(value, 2)),
+  ARIMA(season_adjust)
+)
+
+fit <- myseries_train %>%
+  model(
+    MAM = ETS(value ~ error("M") + trend("A") + season("M")),
+    MAdM = ETS(value ~ error("M") + trend("Ad") + season("M")),
+    
+    SNaive = SNAIVE(value),
+
+    DRIFt = SNAIVE(value ~ drift()),
+    
+    stlarima = stlarima
+  )
+
+fit %>% accuracy()
+```
+
