@@ -1,0 +1,273 @@
+---
+title: "Final ECON2209 project"
+author: "z5207462"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+fontsize: 11pt
+---
+
+*Setup*
+
+```{r, message= FALSE, warning= FALSE}
+library(fpp3)
+
+set.seed(5207462)
+myseries <- aus_retail %>%
+  filter(`Series ID` == sample(aus_retail$`Series ID`,1))
+```
+
+*Part 1: Data Exploration and Transformation*
+
+a)
+
+```{r}
+myseries %>% autoplot(Turnover) + labs(y = "Turnover (million $AUD)", title = myseries$Industry[1], subtitle = myseries$State[1])
+```
+As seen above, the data has an upward trend with a cyclical nature i.e. during the GFC and early 2000’s. However, seasonality is harder to see unless further analysed.
+
+b)
+
+```{r}
+gg_season(myseries, y = Turnover)
+```
+
+The seasonality is only further emphasized in the subseries graph with December sales being higher than the rest of the year potentially due to Christmas sales.
+
+```{r}
+gg_subseries(myseries, y = Turnover)
+```
+As seen above, the relationship between all the lags is strongly positive highlighting the strong seasonality of the data.
+
+```{r}
+gg_lag(myseries, y = Turnover, geom = "point")
+```
+
+This graph highlights the seasonality due to the “scalloped” shape of the sales curve whilst the general down emphasizes the curves strong trend.
+
+```{r}
+ACFeg <- myseries %>% ACF(Turnover)
+autoplot(ACFeg)
+```
+
+By using features, we can find the appropriate value for Box-Cox transformations. However, since the data does not have a heavy skew, there is no need for the data to be normalized and consequently no need for a transformation.
+
+c)
+
+```{r,echo= FALSE}
+myseries %>%
+  features(Turnover, features = guerrero)
+
+myseries %>% autoplot(box_cox(Turnover, 0.0107))
+```
+
+By using features, we can find the appropriate value for Box-Cox transformations. However, since the data does not have a heavy skew, there is no need for the data to be normalized and consequently no need for a transformation.
+
+*Part 2: Forecasting*
+
+a)
+
+```{r}
+myseries_train <- myseries %>%
+  filter(Month <= max(Month) - 8*12) %>%
+  summarise(Turnover = sum(Turnover))
+```
+
+b)
+
+```{r}
+autoplot(myseries_train, .vars = Turnover)
+```
+
+As seen above, the data is split appropriately and produced.
+
+c)
+
+```{r}
+fit <- myseries_train %>%
+  model(
+    snaive = SNAIVE(Turnover)
+  )
+fc <- fit %>% forecast(h = "8 years")
+```
+
+d)
+
+```{r, message= FALSE, warning= FALSE}
+fit %>% gg_tsresiduals()
+```
+
+The mean of the residuals is not close to zero since it varies for the valued after 2000 Jan. The ACF has strong trends and correlation suggestion that the forecasts will not be that good. However, the histogram is quite like a normal distribution meaning that the prediction intervals computed might be accurate.
+
+e)
+
+```{r}
+fit %>% forecast(h = 96) %>% autoplot(myseries_train)
+```
+
+f)
+
+```{r}
+fit %>% forecast(h = 96) %>% autoplot(myseries_train) + autolayer(myseries)
+```
+
+As seen above the G...
+
+*Part 3: Exponential Smoothing*
+
+a) Multiplicative seasonality method is more appropriate for this series due to the seasonality present in the data, allowing for the width of the seasonal patterns to be proportional to the changes. If additive was used, the results would be less accurate.
+
+b)
+
+```{r}
+fit <- myseries_train %>%
+  model(
+    G = ETS(Turnover ~ error("M") + trend("A") + season("M")),
+    Gdamp = ETS(Turnover ~ error("M") + trend("Ad") + season("M"))
+    )
+```
+
+The multiplicative method and the damped version are created above.
+
+```{r}
+fit %>%
+  forecast(h = 36) %>% autoplot(myseries_train)
+```
+
+Both the damped and normal forecasts and prediction intervals are plotted above. As we can see, the G model exaggerates the highs and lows a bit more than the damped model.
+
+```{r}
+accuracy(fit)
+```
+
+As seen above, the normal version has a bit higher of a RMSE compared to the damped model. However, the normal method is better since it has lower values for ME, MPE, MAPE and ACF1 than the damped version. Consequently, using the damped version will provide better values.
+
+c)
+
+```{r}
+fit <- myseries_train %>%
+  model(
+    G = ETS(Turnover ~ error("M") + trend("A") + season("M")),
+  ) %>%
+  select(G)
+fit %>% gg_tsresiduals()
+```
+
+As seen above, the residuals from the best method does look like white noise since the: 
+1.	histogram looks very similar to a normal distribution. 
+2.	the mean of the residuals is close to 0 
+3.	most of the ACF spikes are within range of +-2/sqrt(T)
+
+d)
+
+```{r, results='hide'}
+fit %>%
+  forecast(h = 96)
+```
+
+```{r}
+accuracy(fit)
+```
+
+The RMSE for the normal (undamped version) using MAM is 0.728 compared to 1.96 for snaive. This means that the normal and undamped version is the better method to use in this regard. Similarly, all the values are lower for the normal, undamped version when compared to snaive suggesting that we should use this.
+
+e)
+
+```{r}
+fit <- myseries_train %>%
+  model(
+    G = ETS(Turnover ~ error("M") + trend("A") + season("M")),
+    stl = decomposition_model(STL(log(Turnover)), ETS(season_adjust))
+  )
+accuracy(fit)
+```
+
+As seen above, the RMSE and MAE are lower for the STL decomposition than for the MAM. When compared to the previous comparison of MAM is lower for RMSE and MAE. Consequently, since more values are lower for STL decomposition compared to MAM, STL decomposition should be used.
+
+*Part 4: ARIMA Modeling*
+
+a)
+
+```{r, message= FALSE, warning= FALSE}
+myseries %>%
+  gg_tsdisplay((Turnover) %>% difference(1) %>% difference(1), plot_type = "partial")
+```
+
+When the differences of 1 and 1 was applied on the myseries set due to PACF having a significant peak at 12 after the first difference followed by a peak at 6 in the ACF curve, the values of (1,0,1) seemed optimal. As a result, the differences are closed to the mean of 0 but the ACF and PACF still have significant outliers.
+
+```{r}
+fit <- myseries %>%
+  model(
+    guess = ARIMA(Turnover ~ 1 + PDQ(1,1,0)),
+  )
+fit %>%
+  gg_tsresiduals()
+```
+
+When the PDQ of (1,1,0) was applied, the data output was quite close to the mean of 0 for most residuals. Similarly, the histogram is normalized. Nevertheless, there are two values which are outliers in the ACF. However, this application of the PDQ resulted in quite tidy results. 
+
+b)
+
+```{r}
+fit %>%
+  report()
+
+myseries %>%
+  model(ARIMA(Turnover))
+
+fit <- myseries %>%
+  model(
+    auto = ARIMA(Turnover ~ pdq(1,0,1) + PDQ(0,1,2)),
+  )
+
+fit %>%
+  gg_tsresiduals()
+
+fit %>%
+  report()
+```
+
+By using the chosen values, we received the results of (1,0,1)(1,1,0) with a 12 value drift. This also resulted in an AICc of 1173.45. The mean is also close to zero although variance existed, and the histogram is also normalized. The ACF values are also accurate and valid since there are only two significant values resulting in the data being mostly accurate. 
+
+However by using the autovalues of (1,0,1)(0,1,2) with a 12 drift the AICc is also lower. This means we should use the auto produced values.
+
+c)
+
+```{r}
+fit <- myseries %>%
+  model(
+    snaive = SNAIVE(Turnover),
+    G = ETS(Turnover ~ error("M") + trend("A") + season("M")),
+    guess = ARIMA(Turnover ~ pdq(1,0,1) + PDQ(0,1,2)),
+  )
+
+fit %>%
+  forecast(h = 96) %>% autoplot(myseries)
+```
+
+When the results from part 2 and 3 are auto plotted along with the ARIMA model, the graph above is presented. As we van see the G normal method results in values that exaggerate the data the most followed by the guess (auto-ARIMA) values.
+
+```{r}
+lambda <- myseries %>%
+  features(Turnover, guerrero) %>%
+  pull(lambda_guerrero)
+
+stlarima <- decomposition_model(
+  STL(box_cox(Turnover, lambda)),
+  ARIMA(season_adjust)
+)
+
+fit <- myseries %>%
+  model(
+    snaive = SNAIVE(Turnover),
+    G = ETS(Turnover ~ error("M") + trend("A") + season("M")),
+    guess = ARIMA(Turnover ~ pdq(1,0,1) + PDQ(0,1,2)),
+    arima = ARIMA(box_cox(Turnover, lambda)),
+    stlarima = stlarima
+  )
+
+fit %>%
+  forecast(h = 96) %>% autoplot(myseries)
+```
+
